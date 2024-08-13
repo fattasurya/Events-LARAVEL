@@ -120,7 +120,7 @@
 <body>
     <div class="container mt-4">
         <h1 class="mb-4">Event List</h1>
-        <a href="{{ url('/') }}" class="btn btn-secondary pad">Back</a>
+        <a href="{{ url('/user') }}" class="btn btn-secondary pad">Back</a>
         <form method="GET" action="{{ route('events.search') }}" class="mb-4">
             <div class="input-group">
                 <input type="text" class="form-control" name="query" placeholder="Cari..." value="{{ request()->query('query') }}">

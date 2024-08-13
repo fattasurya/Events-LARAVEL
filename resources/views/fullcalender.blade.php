@@ -11,6 +11,8 @@
         href="https://png.pngtree.com/png-clipart/20240416/original/pngtree-hanging-calendar-illustration-png-image_14839196.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.10.2/fullcalendar.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+
     <style>
         body {
             font-family: 'Roboto', sans-serif;
@@ -20,18 +22,35 @@
             padding: 0;
         }
 
-        .container {
+        .container-wrapper {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin: 40px auto;
+            max-width: 1200px;
+        }
+
+        .container,
+        .container-sidebar {
             background-color: #ffffff;
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
             padding: 30px;
             border-radius: 12px;
-            max-width: 1000px;
-            margin: 40px auto;
+            width: 100%;
             transition: all 0.4s ease-in-out;
         }
 
-        .container:hover {
+        .container:hover,
+        .container-sidebar:hover {
             transform: scale(1.05);
+        }
+
+        .container {
+            max-width: 70%;
+        }
+
+        .container-sidebar {
+            max-width: 500px;
         }
 
         h1 {
@@ -47,7 +66,7 @@
             background-color: #ffffff;
             padding: 15px;
             width: 100%;
-            height: 700px;
+            height: 500px;
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
             overflow: hidden;
         }
@@ -129,15 +148,74 @@
         .btn {
             color: white;
         }
+
+        .clock {
+            font-family: 'Helvetica Neue', sans-serif;
+            color: #333;
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            width: 440px;
+            height: 100px;
+            text-align: center;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-size: 24px;
+            font-weight: 300;
+
+        }
+
+        .clock .time {
+            font-size: 30px;
+            font-weight: bold;
+        }
+
+        .clock .date {
+            font-size: 18px;
+            color: #888;
+            font-weight: bold;
+        }
+
+        .toast-info {
+            background-color: #00838f;
+        }
+
+        .details {
+            max-height: 480px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <h1>Calendar</h1>
-        <a href="{{ route('events.list') }}" class="btn btn-primary mb-3">Search Events</a>
-        <a href="{{ url('kontak') }}" class="btn btn-secondary mb-3">Contact</a>
-        <div id="calendar"></div>
+    <div class="container-wrapper">
+        <div class="container">
+            <form action="{{ url('logout') }}" method="POST">
+            @csrf
+            <h1>Calendar Admin</h1>
+            <a href="{{ route('events.listadmin') }}" class="btn btn-primary mb-3">Search Events</a>
+            <a href="{{ url('kontak') }}" class="btn btn-secondary mb-3">Contact</a>
+            <button type="submit" class="btn btn-warning mb-3">Log out</button>
+            </form>
+            <div id="calendar"></div>
+       
+        </div>
+        <div class="container-sidebar">
+            <h1>Events</h1>
+            <div id="eventDetails">
+                <!-- Detail event lainnya -->
+                <div id="eventImageWrapper" style="display:none;">
+                    <h4>Event Image</h4>
+                    <img id="eventImage" src="" alt="Event Image" style="max-width: 100%; border-radius: 8px;">
+                </div>
+            </div>
+
+            <p align="center"><button type="button" class="btn btn-primary" id="updateEventSidebarBtn" style="display:none;">Update
+                Event</button></p>
+            <div id="liveClock" class="mt-3 clock"></div> <!-- Menambahkan elemen untuk jam -->
+        </div>
+
     </div>
 
     <div class="modal fade" id="eventModal" tabindex="-1" role="dialog" aria-labelledby="eventModalLabel"
@@ -151,7 +229,7 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <form id="eventForm">
+                    <form id="eventForm" method="POST" enctype="multipart/form-data">
                         <input type="hidden" id="eventId">
                         <div class="form-group">
                             <label for="eventTitle">Title</label>
@@ -190,6 +268,12 @@
                             <label for="eventShirt">Shirt</label>
                             <input type="text" class="form-control" id="eventShirt" placeholder="Enter Shirt">
                         </div>
+
+                        <div class="form-group">
+                            <label for="eventImage">Image</label>
+                            <input type="file" id="eventImage" name="image">
+                        </div>
+
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -199,7 +283,6 @@
                     <button type="button" class="btn btn-warning" id="editEventBtn"
                         style="display:none;">Update</button>
                     <button type="button" class="btn btn-primary" id="saveEventBtn">Save</button>
-                    <!-- New Show Button -->
                     <a href="#" class="btn btn-info" id="showEventBtn">Show</a>
                 </div>
             </div>
@@ -211,6 +294,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.10.2/fullcalendar.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
 
     <script>
         $(document).ready(function() {
@@ -221,6 +305,7 @@
                 }
             });
 
+            // Initialize FullCalendar
             $('#calendar').fullCalendar({
                 editable: true,
                 events: SITEURL + "/events",
@@ -230,12 +315,11 @@
                 select: function(start, end) {
                     var today = moment().startOf('day');
                     if (start.isBefore(today)) {
-                        alert('Cannot book for past dates.');
+                        toastr.error('Cannot book for past dates.');
                         $('#calendar').fullCalendar('unselect');
                         return;
                     }
 
-                    // Set End Date to be one day less
                     var adjustedEnd = end.subtract(1, 'days');
 
                     $('#eventModal').find('.modal-title').text('Add Event');
@@ -246,11 +330,12 @@
                     $('#eventModal').find('#removeEventBtn').hide();
                     $('#eventModal').find('#editEventBtn').hide();
                     $('#eventModal').find('#saveEventBtn').show();
-                    $('#eventModal').find('#showEventBtn').hide(); // Hide the Show button initially
+                    $('#eventModal').find('#showEventBtn').hide();
                     $('#eventModal').modal('show');
                 },
                 eventClick: function(event) {
-                    // Adjust end date for display and form inputs
+                    console.log("Event clicked:", event);
+
                     var adjustedEnd = moment(event.end).subtract(1, 'days');
 
                     $('#eventModal').find('.modal-title').text('Edit Event');
@@ -262,71 +347,66 @@
                     $('#eventModal').find('#eventRoom').val(event.room);
                     $('#eventModal').find('#eventShirt').val(event.shirt);
 
-                    // Update the Show button URL
                     var adjustedEndForShow = moment(event.end).subtract(1, 'days');
                     $('#eventModal').find('#showEventBtn').attr('href', SITEURL + "/events/" + event
-                            .id + "?end=" + adjustedEndForShow.format('YYYY-MM-DD'))
-                        .show();
+                        .id + "?end=" + adjustedEndForShow.format('YYYY-MM-DD')).show();
 
                     $('#eventModal').find('#removeEventBtn').show();
                     $('#eventModal').find('#editEventBtn').show();
                     $('#eventModal').find('#saveEventBtn').hide();
-                    $('#eventModal').modal('show');
-                },
 
+                    // Populate Sidebar
+                    var eventDetailsHtml = `
+            <div class="details">
+                <h3>${event.title}</h3>
+                <p><strong>Start:</strong> ${event.start.format('YYYY-MM-DD HH:mm:ss')}</p>
+                <p><strong>End:</strong> ${adjustedEnd.format('YYYY-MM-DD HH:mm:ss')}</p>
+                <p><strong>Room:</strong> ${event.room || 'N/A'}</p>
+                <p><strong>Shirt:</strong> ${event.shirt || 'N/A'}</p>
+                <p><strong></strong> ${event.image ? `<img src="${SITEURL}/storage/images/${event.image}" alt="Event Image" style="max-width: 400px; max-height: 250px;">` : 'No image'}</p>
+                 <p><strong>Description:</strong> ${event.description || 'N/A'}</p>
+                 
+            </div>
+            `;
+                    $('#eventDetails').html(eventDetailsHtml);
+
+                    $('#updateEventSidebarBtn').show();
+                },
 
                 viewRender: function(view, element) {
                     checkTodaysEvents();
                 },
+
+                eventAfterRender: function(event, element, view) {
+                    checkTodaysEvents();
+                }
             });
 
-            function checkTodaysEvents() {
-                var today = moment().format('YYYY-MM-DD');
-                $.ajax({
-                    url: SITEURL + "/events",
-                    type: 'GET',
-                    data: {
-                        start: today,
-                        end: today
-                    },
-                    success: function(data) {
-                        var eventsToday = data.filter(event => moment(event.start).format(
-                            'YYYY-MM-DD') === today);
-                        if (eventsToday.length > 0) {
-                            var eventList = '<ul>';
-                            eventsToday.forEach(event => {
-                                eventList += '<li>' + event.title + ', ' + event.room + '</li>';
-                            })
-                            eventList += '</ul>';
-                            toastr.info('You have events scheduled for today:' + eventList,
-                                'Today\'s Events', {
-                                    closeButton: true,
-                                    enableHtml: true
-                                });
-                        }
-                    },
-                    error: function() {
-                        toastr.error('Error fetching events.');
-                    }
-                });
-            }
+            $('#updateEventSidebarBtn').click(function() {
+                $('#eventModal').modal('show');
+            });
 
             $('#saveEventBtn').click(function() {
-                var formData = {
-                    id: $('#eventId').val(),
-                    title: $('#eventTitle').val(),
-                    start: $('#eventStart').val(),
-                    end: moment($('#eventEnd').val()).add(1, 'days').format(
-                    'YYYY-MM-DD HH:mm:ss'), // Sesuaikan tanggal akhir
-                    description: $('#eventDescription').val(),
-                    room: $('#eventRoom').val(),
-                    shirt: $('#eventShirt').val(),
-                };
+                var formData = new FormData();
+                formData.append('title', $('#eventTitle').val());
+                formData.append('start', $('#eventStart').val());
+                formData.append('end', moment($('#eventEnd').val()).add(1, 'days').format(
+                    'YYYY-MM-DD HH:mm:ss'));
+                formData.append('description', $('#eventDescription').val());
+                formData.append('room', $('#eventRoom').val());
+                formData.append('shirt', $('#eventShirt').val());
+
+                var imageFileInput = $('#eventImage')[0];
+                if (imageFileInput && imageFileInput.files && imageFileInput.files[0]) {
+                    formData.append('image', imageFileInput.files[0]);
+                }
 
                 $.ajax({
                     url: SITEURL + "/events",
                     type: 'POST',
                     data: formData,
+                    processData: false,
+                    contentType: false,
                     success: function(data) {
                         $('#calendar').fullCalendar('refetchEvents');
                         $('#eventModal').modal('hide');
@@ -340,20 +420,27 @@
             });
 
             $('#editEventBtn').click(function() {
-                var formData = {
-                    id: $('#eventId').val(),
-                    title: $('#eventTitle').val(),
-                    start: $('#eventStart').val(),
-                    end: moment($('#eventEnd').val()).add(1, 'days').format(
-                    'YYYY-MM-DD HH:mm:ss'), // Sesuaikan tanggal akhir
-                    description: $('#eventDescription').val(),
-                    room: $('#eventRoom').val(),
-                    shirt: $('#eventShirt').val(),
-                };
+                var formData = new FormData();
+                formData.append('_method', 'PUT');
+                formData.append('title', $('#eventTitle').val());
+                formData.append('start', $('#eventStart').val());
+                formData.append('end', moment($('#eventEnd').val()).add(1, 'days').format(
+                    'YYYY-MM-DD HH:mm:ss'));
+                formData.append('description', $('#eventDescription').val());
+                formData.append('room', $('#eventRoom').val());
+                formData.append('shirt', $('#eventShirt').val());
+
+                var imageFile = $('#eventImage')[0].files[0];
+                if (imageFile) {
+                    formData.append('image', imageFile);
+                }
+
                 $.ajax({
                     url: SITEURL + "/events/" + $('#eventId').val(),
-                    type: 'PUT',
+                    type: 'POST',
                     data: formData,
+                    processData: false,
+                    contentType: false,
                     success: function(data) {
                         $('#calendar').fullCalendar('refetchEvents');
                         $('#eventModal').modal('hide');
@@ -366,50 +453,60 @@
                 });
             });
 
-            $('#removeEventBtn').click(function() {
-                var id = $('#eventId').val();
-                $.ajax({
-                    url: SITEURL + "/events/" + id,
-                    type: 'DELETE',
-                    success: function(data) {
-                        $('#calendar').fullCalendar('refetchEvents');
-                        $('#eventModal').modal('hide');
-                        toastr.success('Event deleted successfully');
-                    },
-                    error: function() {
-                        location.reload();
-                        toastr.success('Event deleted successfully');
-                    }
-                });
+            $('#removeEventBtn').click(function() { {
+                    $.ajax({
+                        url: SITEURL + "/events/" + $('#eventId').val(),
+                        type: 'DELETE',
+                        success: function(data) {
+                            $('#calendar').fullCalendar('refetchEvents');
+                            $('#eventModal').modal('hide');
+                            toastr.success('Event deleted successfully');
+                        },
+                        error: function(xhr) {
+                            var errorMessage = xhr.responseJSON.message ||
+                                'Error deleting event';
+                            toastr.error(errorMessage);
+                        }
+                    });
+                }
             });
 
-            function saveEvent(event) {
-                var formData = {
-                    id: event.id,
-                    title: event.title,
-                    start: event.start.format('YYYY-MM-DD HH:mm:ss'),
-                    end: event.end.subtract(1, 'days').format(
-                        'YYYY-MM-DD HH:mm:ss'), // Pastikan pengurangan satu hari
-                    description: event.description,
-                    room: event.room,
-                    shirt: event.shirt,
-                };
+            $('#showEventBtn').click(function() {
+                window.location.href = $(this).attr('href');
+            });
+
+            function checkTodaysEvents() {
                 $.ajax({
-                    url: SITEURL + "/events/" + event.id, // Gunakan PUT method untuk update
-                    type: 'PUT',
-                    data: formData,
-                    success: function(data) {
-                        toastr.success('Event updated successfully');
+                    url: SITEURL + '/todays-events',
+                    type: 'GET',
+                    success: function(events) {
+                        if (events.length > 0) {
+                            toastr.info('You have events scheduled for today!', 'Reminder');
+                        }
                     },
-                    error: function() {
-                        toastr.error('Error updating event');
-                        location.reload();
+                    error: function(xhr) {
+                        console.error('Error fetching today\'s events:', xhr.responseText);
                     }
                 });
             }
+
+
+            function updateClock() {
+                var now = moment();
+                var timeString = now.format('h:mm:ss A');
+                var dateString = now.format('dddd, MMMM D, YYYY');
+
+                $('#liveClock').html(
+                    `<div class="time">${timeString}</div>
+             <div class="date">${dateString}</div>`
+                );
+            }
+
+            updateClock();
+            setInterval(updateClock, 1000);
+
         });
     </script>
-
 </body>
 
 </html>

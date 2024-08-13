@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Event;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 class EventController extends Controller
 {
@@ -17,6 +20,11 @@ class EventController extends Controller
     {
         $events = Event::all();
         return view('events.list', compact('events'));
+    }
+    public function listadmin()
+    {
+        $events = Event::all();
+        return view('events.listadmin', compact('events'));
     }
 
     public function search(Request $request)
@@ -40,93 +48,150 @@ class EventController extends Controller
     public function destroy($id)
     {
         $event = Event::findOrFail($id);
+
+        if ($event->image && Storage::exists('public/images/' . $event->image)) {
+            Storage::delete('public/images/' . $event->image);
+        }
+
         $event->delete();
-        return redirect()->route('events.list')->with('success', 'Event successfully deleted');
+
+        return response()->json(['success' => true, 'message' => 'Event deleted successfully']);
     }
+
+
 
     public function store(Request $request)
     {
-        // Validasi input
         $request->validate([
             'title' => 'required',
             'start' => 'required|date',
-            'end' => 'required|date',
-            'description' => 'required',
-            'room' => 'required',
-            'shirt' => 'required'
+            'end' => 'required|date|after_or_equal:start',
+            'description' => 'nullable',
+            'room' => 'nullable',
+            'shirt' => 'nullable',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
         ]);
-    
-        // Cek apakah ada acara lain dengan room yang sama pada tanggal yang sama
-        $conflict = Event::where('room', $request->room)
-            ->where(function ($query) use ($request) {
-                // Memeriksa apakah acara lain terjadi pada tanggal yang sama
-                $query->where(function ($q) use ($request) {
-                    $q->whereBetween('start', [$request->start, $request->end])
-                      ->orWhereBetween('end', [$request->start, $request->end]);
-                })
-                ->orWhere(function ($q) use ($request) {
-                    $q->where('start', '<=', $request->start)
-                      ->where('end', '>=', $request->end);
-                });
-            })
-            ->exists();
-    
-        if ($conflict) {
-            return response()->json(['message' => 'The selected room is already booked for the chosen time period.'], 400);
-        }
-    
-        // Simpan acara baru
-        $event = Event::create([
-            'title' => $request->title,
-            'start' => $request->start,
-            'end' => $request->end,
-            'description' => $request->description,
-            'room' => $request->room,
-            'shirt' => $request->shirt,
-        ]);
-    
-        return response()->json($event, 201); // 201 Created
-    }
-    
-    
-    public function update(Request $request, $id)
-    {
-        // Validasi input
-        $request->validate([
-            'title' => 'required',
-            'start' => 'required|date',
-            'end' => 'required|date',
-            'room' => 'required',
-            'description' => 'required',
-            'shirt' => 'required'
-        ]);
-    
-        // Cek apakah ada acara lain dengan room yang sama (kecuali acara saat ini) pada tanggal yang sama
-        $conflict = Event::where('room', $request->room)
-            ->where(function ($query) use ($request) {
-                // Memeriksa apakah acara lain terjadi pada tanggal yang sama
-                $query->whereBetween('start', [$request->start, $request->end])
-                    ->orWhereBetween('end', [$request->start, $request->end])
-                    ->orWhere(function ($query) use ($request) {
-                        $query->where('start', '<=', $request->start)
-                              ->where('end', '>=', $request->end);
+
+        $start = $request->input('start');
+        $end = $request->input('end');
+        $room = $request->input('room');
+
+        // Check for overlapping events in the same room
+        $conflictingEvent = Event::where('room', $room)
+            ->where(function ($query) use ($start, $end) {
+                $query->whereBetween('start', [$start, $end])
+                    ->orWhereBetween('end', [$start, $end])
+                    ->orWhere(function ($query) use ($start, $end) {
+                        $query->where('start', '<=', $start)
+                            ->where('end', '>=', $end);
                     });
             })
-            ->where('id', '!=', $id)
             ->exists();
-    
-        if ($conflict) {
-            return response()->json(['message' => 'The selected room is already booked for the chosen time period.'], 400);
+
+        if ($conflictingEvent) {
+            return response()->json(['success' => false, 'message' => 'The room is already booked during the selected time.'], 400);
         }
-    
-        // Temukan acara yang akan diperbarui dan perbarui
-        $event = Event::find($id);
-        $event->update($request->all());
-    
+
+        $event = new Event();
+        $event->title = $request->title;
+        $event->start = $start;
+        $event->end = $end;
+        $event->description = $request->description;
+        $event->room = $room;
+        $event->shirt = $request->shirt;
+
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $imageName = time() . '.' . $image->getClientOriginalExtension();
+            $image->storeAs('public/images', $imageName);
+            $event->image = $imageName;
+        }
+
+        $event->save();
+
         return response()->json($event);
     }
-    
 
-        
+
+
+    public function update(Request $request, $id)
+    {
+        $event = Event::findOrFail($id);
+
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'start' => 'required|date',
+            'end' => 'required|date|after_or_equal:start',
+            'description' => 'nullable|string',
+            'room' => 'nullable|string',
+            'shirt' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpg,png,jpeg,gif|max:2048',
+        ]);
+
+        $start = $request->input('start');
+        $end = $request->input('end');
+        $room = $request->input('room');
+
+        // Check for overlapping events in the same room, excluding the current event
+        $conflictingEvent = Event::where('room', $room)
+            ->where('id', '!=', $id) // Exclude the current event
+            ->where(function ($query) use ($start, $end) {
+                $query->whereBetween('start', [$start, $end])
+                    ->orWhereBetween('end', [$start, $end])
+                    ->orWhere(function ($query) use ($start, $end) {
+                        $query->where('start', '<=', $start)
+                            ->where('end', '>=', $end);
+                    });
+            })
+            ->exists();
+
+        if ($conflictingEvent) {
+            return response()->json(['success' => false, 'message' => 'The room is already booked during the selected time.'], 400);
+        }
+
+        $event->title = $request->input('title');
+        $event->start = $start;
+        $event->end = $end;
+        $event->description = $request->input('description');
+        $event->room = $room;
+        $event->shirt = $request->input('shirt');
+
+        if ($request->hasFile('image')) {
+            // Delete old image if exists
+            if ($event->image && Storage::exists('public/images/' . $event->image)) {
+                Storage::delete('public/images/' . $event->image);
+            }
+
+            // Store new image
+            $image = $request->file('image');
+            $imageName = time() . '.' . $image->getClientOriginalExtension();
+            $image->storeAs('public/images', $imageName);
+            $event->image = $imageName;
+        }
+
+        $event->save();
+
+        return response()->json(['success' => true, 'message' => 'Event updated successfully']);
+    }
+
+    public function todaysEvents()
+    {
+        $today = Carbon::today();
+        $events = Event::whereDate('start', $today)->get();
+        return response()->json($events);
+    }
+
+   
+
+
+
+
+
+
+
+
+
+
+
 
 }
